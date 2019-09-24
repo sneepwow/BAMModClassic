@@ -6,7 +6,7 @@ BÄM Mod Classic is a remake of a classic addon that announces your critical hit
 
 ## Installation
 
-Install in to World of Warcraft/_classic_/Interface/AddOns/BamModClassic/
+Install in to World of Warcraft/\_classic\_/Interface/AddOns/BamModClassic/
 
 ## Usage
 
