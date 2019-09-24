@@ -39,8 +39,8 @@ BamModClassic_SlashFunctions = {
     },
     channel = {
       desc = "Sets channel to output BÄM Mod crit announces.",
-      help = "A valid channel either one of the following: SAY YELL PARTY RAID or CHANNEL followed by the channel #. frame is also an option to output to the chatframe instead of a chat channel.",
-      usage = "[SAY YELL PARTY RAID CHANNEL frame] [[Channel #]]"
+      help = "A valid channel either one of the following: SAY YELL PARTY RAID or CHANNEL followed by the channel #. SELF is also an option to output to the chatframe instead of a chat channel.",
+      usage = "[SAY YELL PARTY RAID CHANNEL SELF] [[Channel #]]"
     },
     specifiers = {
       desc = "Lists the string specifiers you can use in your /bam message string to swap in data from the attack.",
@@ -78,6 +78,7 @@ local BAMLogMaxCount = 50
 local BAMEvents = BamModClassic_Events
 local BAMSlash = BamModClassic_SlashFunctions
 local playerGUID = UnitGUID("player")
+local BAMDebugMode = false
 
 function BAMGenerateMessage(...)
   local arg = {...}
@@ -151,11 +152,11 @@ function BAMEvents.EventHandlers.COMBAT_LOG_EVENT_UNFILTERED(self)
         spellId, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, offhand = select(12, CombatLogGetCurrentEventInfo())
       end
 
-      if (critical == true) and (subevent == "SWING_DAMAGE" or subevent == "SPELL_DAMAGE" or subevent == "SPELL_HEAL") then
+      if (critical == true or BAMDebugMode == true) and (subevent == "SWING_DAMAGE" or subevent == "SPELL_DAMAGE" or subevent == "SPELL_HEAL") then
         local action = (spellName) or BamModClassic_Config["MeleeReplaceString"]
         chatMessage = BAMGenerateMessage(destination, action, amount, overkill, school, resisted, blocked, absorbed)
         BAMLogMessage(chatMessage)
-        if (BamModClassic_Config["OutputChannel"] == "FRAME") then
+        if (BamModClassic_Config["OutputChannel"] == "SELF") then
           print("BÄM Mod Crit Announce: " .. chatMessage)
         elseif (BamModClassic_Config["OutputChannel"] == "CHANNEL") then
           SendChatMessage(chatMessage, BamModClassic_Config["OutputChannel"], nil, BamModClassic_Config["OutputChannelNumber"])
@@ -231,6 +232,16 @@ function BAMSlash.SlashFunctions.help(splitCmds)
   print("BÄM Mod Classic list of slash commands:")
   for i, v in pairs(BamModClassic_SlashFunctions.SlashHelp) do
     print("  /bam " .. i .. " " .. v.usage .. "  " .. v.desc)
+  end
+end
+
+function BAMSlash.SlashFunctions.debug(splitCmds)
+  if (BAMDebugMode == true) then
+    print("BÄM Mod debug mode off")
+    BAMDebugMode = false
+  else
+    print("BÄM Mod debug mode on")
+    BAMDebugMode = true
   end
 end
 
