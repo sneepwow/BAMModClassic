@@ -47,6 +47,11 @@ BamModClassic_SlashFunctions = {
       help = "",
       usage = ""
     },
+    log = {
+      desc = "Prints out the last [[num]] crit messages saved in the log.",
+      help = "",
+      usage = "[[num]]"
+    },
   }
 }
 
@@ -68,6 +73,8 @@ local BamModClassic_MessageSpecifiers = {
   "{absorbed}"
 }
 
+local BAMLog = {}
+local BAMLogMaxCount = 50
 local BAMEvents = BamModClassic_Events
 local BAMSlash = BamModClassic_SlashFunctions
 local playerGUID = UnitGUID("player")
@@ -83,6 +90,18 @@ function BAMGenerateMessage(...)
     end
   end
   return generatedMsg
+end
+
+function BAMLogMessage(msg)
+  hours,minutes = GetGameTime()
+  while (#BAMLog >= BAMLogMaxCount) do
+    table.remove(BAMLog, 0)
+  end
+  local channel = BamModClassic_Config["OutputChannel"]
+  if ("channel" == "CHANNEL") then
+    channel = "/" .. BamModClassic_Config["OutputChannelNumber"]
+  end
+  table.insert(BAMLog, "[" .. hours .. ":" .. minutes .. "][" .. channel .. "]: " .. msg)
 end
 
 function BAMEvents:OnEvent(_, event, ...)
@@ -128,13 +147,14 @@ function BAMEvents.EventHandlers.COMBAT_LOG_EVENT_UNFILTERED(self)
 
       if (subevent == "SWING_DAMAGE") then
         amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, offhand = select(12, CombatLogGetCurrentEventInfo())
-      elseif (subevent == "SPELL_DAMAGE") then
+      elseif (subevent == "SPELL_DAMAGE" or subevent == "SPELL_HEAL") then
         spellId, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, offhand = select(12, CombatLogGetCurrentEventInfo())
       end
 
-      if (critical == true) and (subevent == "SWING_DAMAGE" or subevent == "SPELL_DAMAGE") then
+      if (critical == true or critical == false) and (subevent == "SWING_DAMAGE" or subevent == "SPELL_DAMAGE" or subevent == "SPELL_HEAL") then
         local action = (spellName) or BamModClassic_Config["MeleeReplaceString"]
         chatMessage = BAMGenerateMessage(destination, action, amount, overkill, school, resisted, blocked, absorbed)
+        BAMLogMessage(chatMessage)
         if (BamModClassic_Config["OutputChannel"] == "FRAME") then
           print("BÄM Mod Crit Announce: " .. chatMessage)
         elseif (BamModClassic_Config["OutputChannel"] == "CHANNEL") then
@@ -172,13 +192,11 @@ function BAMSlash.SlashFunctions.message(splitCmds)
   end
 
   local assembledString = ""
-
   for i,v in pairs(splitCmds) do
     if (i ~= 1) then
       assembledString = assembledString .. " " .. v
     end
   end
-
   print("Setting BÄM Mod Classic crit announce message to \'" .. assembledString .. '\'')
   BamModClassic_Config["CritString"] = assembledString
 end
@@ -216,9 +234,22 @@ function BAMSlash.SlashFunctions.help(splitCmds)
   end
 end
 
+function BAMSlash.SlashFunctions.log(splitCmds)
+  local printCount = 0;
+  local numToPrint = 5
+  if (#splitCmds > 1) then
+    numToPrint = tonumber(splitCmds[2])
+  end
+  print("BÄM Mod log:")
+  while (printCount < numToPrint and printCount < BAMLogMaxCount and printCount < #BAMLog) do
+    print("  " .. BAMLog[printCount])
+    printCount = printCount + 1
+  end
+end
+
 function BAMSlash.SlashFunctions.test(splitCmds)
   print("BÄM Message test:")
-  print("    [" .. BamModClassic_Config["OutputChannel"] .. "]: " .. BAMGenerateMessage("Sneep", "Melee", "250", "0", "Melee", "0", "0", "0"))
+  print("  [" .. BamModClassic_Config["OutputChannel"] .. "]: " .. BAMGenerateMessage("Sneep", "Melee", "250", "0", "Physical", "0", "0", "0"))
 end
 
 -- Register each event for which we have an event handler.
