@@ -2,7 +2,7 @@
 
 local BamModClassic_DefaultConfig = {
   EnableBamMod = true,
-  CritString = "BÄM!! [{action} - {damage}]",
+  CritString = "BÄM!! [{action} - {amount}]",
   OutputChannel = "YELL",
   OutputChannelNumber = 1,
   MeleeReplaceString = "Melee"
@@ -60,7 +60,7 @@ local BamModClassic_OutputChannels = {
 local BamModClassic_MessageSpecifiers = {
   "{target}",
   "{action}",
-  "{damage}", 
+  "{amount}", 
   "{overkill}", 
   "{school}", 
   "{resisted}", 
@@ -77,7 +77,10 @@ function BAMGenerateMessage(...)
   local generatedMsg = BamModClassic_Config["CritString"]
   -- Replace our message specifiers in our crit strig with our argument values
   for i = 1, #arg do
-       generatedMsg = generatedMsg:gsub(BamModClassic_MessageSpecifiers[i], arg[i])
+    local i1, i2 = generatedMsg:find(BamModClassic_MessageSpecifiers[i], nil, true)
+    if not (i1 == nil and i2 == nil) then
+      generatedMsg = generatedMsg:gsub(BamModClassic_MessageSpecifiers[i], arg[i])
+    end
   end
   return generatedMsg
 end
@@ -115,22 +118,23 @@ function BAMEvents.EventHandlers.ADDON_LOADED(self, addonName, ...)
   BamModClassic_OptionsWindow:Initialize()
 end
 
-function BAMEvents.EventHandlers.COMBAT_LOG_EVENT_UNFILTERED(self, ...)
+function BAMEvents.EventHandlers.COMBAT_LOG_EVENT_UNFILTERED(self)
   if (BamModClassic_Config["EnableBamMod"] == true) then
-    local timestamp, subevent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags = CombatLogGetCurrentEventInfo()
-    local spellId, spellName, spellSchool
-    local amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, offhand
+    local timestamp, subevent, hideCaster, sourceGuid, sourceName, sourceFlags, sourceRaidFlags, destGuid, destName, destFlags, destRaidflags = CombatLogGetCurrentEventInfo()
 
-    if subevent == "SWING_DAMAGE" then
-      amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, offhand = select(12, ...)
-    elseif subevent == "SPELL_DAMAGE" then
-      spellId, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, offhand = select(12, ...)
-    end
+    if (sourceGuid == playerGUID) then
+      local spellId, spellName, spellSchool
+      local amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, offhand
 
-    if critical then
-      if sourceGUID == playerGUID then
+      if (subevent == "SWING_DAMAGE") then
+        amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, offhand = select(12, CombatLogGetCurrentEventInfo())
+      elseif (subevent == "SPELL_DAMAGE") then
+        spellId, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, offhand = select(12, CombatLogGetCurrentEventInfo())
+      end
+
+      if (critical == true) and (subevent == "SWING_DAMAGE" or subevent == "SPELL_DAMAGE") then
         local action = (spellName) or BamModClassic_Config["MeleeReplaceString"]
-        chatMessage = BAMGenerateMessage(destName, action, amount, overkill, school, resisted, blocked, absorbed)
+        chatMessage = BAMGenerateMessage(destination, action, amount, overkill, school, resisted, blocked, absorbed)
         if (BamModClassic_Config["OutputChannel"] == "FRAME") then
           print("BÄM Mod Crit Announce: " .. chatMessage)
         elseif (BamModClassic_Config["OutputChannel"] == "CHANNEL") then
@@ -140,16 +144,16 @@ function BAMEvents.EventHandlers.COMBAT_LOG_EVENT_UNFILTERED(self, ...)
         end
       end
     end
-  end 
+  end
 end
 
 function BAMSlash.SlashFunctions.enable(splitCmds)
-  print("BÄM Mod Classic Enable")
+  print("BÄM Mod Classic enabled")
   BamModClassic_Config["EnableBamMod"] = true
 end
 
 function BAMSlash.SlashFunctions.disable(splitCmds)
-  print("BÄM Mod Classic Disable")
+  print("BÄM Mod Classic disabled")
   BamModClassic_Config["EnableBamMod"] = false
 end
 
