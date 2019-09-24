@@ -99,7 +99,7 @@ function BAMLogMessage(msg)
   end
   local channel = BamModClassic_Config["OutputChannel"]
   if ("channel" == "CHANNEL") then
-    channel = "/" .. BamModClassic_Config["OutputChannelNumber"]
+    channel = BamModClassic_Config["OutputChannelNumber"]
   end
   table.insert(BAMLog, "[" .. hours .. ":" .. minutes .. "][" .. channel .. "]: " .. msg)
 end
@@ -151,7 +151,7 @@ function BAMEvents.EventHandlers.COMBAT_LOG_EVENT_UNFILTERED(self)
         spellId, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, offhand = select(12, CombatLogGetCurrentEventInfo())
       end
 
-      if (critical == true or critical == false) and (subevent == "SWING_DAMAGE" or subevent == "SPELL_DAMAGE" or subevent == "SPELL_HEAL") then
+      if (critical == true) and (subevent == "SWING_DAMAGE" or subevent == "SPELL_DAMAGE" or subevent == "SPELL_HEAL") then
         local action = (spellName) or BamModClassic_Config["MeleeReplaceString"]
         chatMessage = BAMGenerateMessage(destination, action, amount, overkill, school, resisted, blocked, absorbed)
         BAMLogMessage(chatMessage)
