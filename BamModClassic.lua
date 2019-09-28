@@ -109,8 +109,8 @@ end
 
 function BAMLogMessage(msg)
   hours,minutes = GetGameTime()
-  while (#BAMLog >= BAMLogMaxCount) do
-    table.remove(BAMLog, 0)
+  if (#BAMLog == BAMLogMaxCount) then
+    table.remove(BAMLog, 1)
   end
   local channel = BamModClassic_Config["OutputChannel"]
   if ("channel" == "CHANNEL") then
@@ -304,7 +304,9 @@ end
 
 function BAMSlash.SlashFunctions.test(splitCmds)
   print("|cFFFFFF7FBÄM Mod Classic|r Message test:")
-  print("  [" .. BamModClassic_Config["OutputChannel"] .. "]: " .. BAMGenerateMessage("Sneep", "Melee", "250", "0", "Physical", "0", "0", "0"))
+  local bamMsg = BAMGenerateMessage("Sneep", "Melee", "250", "0", "Physical", "0", "0", "0")
+  BAMLogMessage(bamMsg)
+  print("[" .. BamModClassic_Config["OutputChannel"] .. "]: " .. bamMsg)
 end
 
 function BAMSlash.SlashFunctions.parse(splitCmds)
@@ -362,7 +364,6 @@ BAMEvents.Frame:SetScript("OnEvent", function(_, event, ...) BAMEvents:OnEvent(_
 SLASH_BAM1 = "/bam"
 SlashCmdList["BAM"] = function(inArgs)
   if (inArgs:len() ~= 0) then
-
     splitCmds = {}
     local subStrCount = 0
     local isMessageCommand = false
