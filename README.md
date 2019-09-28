@@ -10,4 +10,4 @@ Install to World of Warcraft/\_classic\_/Interface/AddOns/BamModClassic/
 
 ## Usage
 
-Use _/bam help_ for a list of commands inside of WoW.
+Use `/bam help` for a list of commands inside of WoW.

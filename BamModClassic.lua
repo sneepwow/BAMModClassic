@@ -18,39 +18,52 @@ BamModClassic_SlashFunctions = {
   SlashFunctions = {},
   SlashHelp = {
     enable = {
-      desc = "Enables BÄM Mod crit announces.",
+      desc = "Enables |cFFFFFF7FBÄM Mod Classic|r crit announces.",
       help = "",
+      data = nil,
       usage = ""
     },
     disable = {
-      desc = "Disables BÄM Mod crit announces.",
+      desc = "Disables |cFFFFFF7FBÄM Mod Classic|r crit announces.",
       help = "",
+      data = nil,
       usage = ""
     },
     toggle = {
-      desc = "Toggles on/off BÄM Mod crit announces.",
+      desc = "Toggles on/off |cFFFFFF7FBÄM Mod Classic|r crit announces.",
       help = "",
+      data = nil,
       usage = ""
     },
     message = {
-      desc = "Sets the message to send on BÄM Mod crit announces.",
-      help = "Enter your entire message to send out on a crit. Use the {specifiers} from '/bam specifiers' to swap in data from the attack.",
+      desc = "Sets the message to send on |cFFFFFF7FBÄM Mod Classic|r crit announces.",
+      help = "Enter your entire message to send out on a crit. Use the {specifiers} from '|cFFFFFF7F/bam|r specifiers' to swap in data from the attack.",
+      data = nil,
       usage = "..."
     },
     channel = {
       desc = "Sets channel to output BÄM Mod crit announces.",
       help = "A valid channel either one of the following: SAY YELL PARTY RAID or CHANNEL followed by the channel #. SELF is also an option to output to the chatframe instead of a chat channel.",
+      data = nil,
       usage = "[SAY YELL PARTY RAID CHANNEL SELF] [[Channel #]]"
     },
     specifiers = {
-      desc = "Lists the string specifiers you can use in your /bam message string to swap in data from the attack.",
+      desc = "Lists the string specifiers you can use in your \'|cFFFFFF7F/bam|r message\' string to swap in data from the attack.",
       help = "",
+      data = nil,
       usage = ""
     },
     log = {
       desc = "Prints out the last [[num]] crit messages saved in the log.",
       help = "",
+      data = nil,
       usage = "[[num]]"
+    },
+    help = {
+      desc = "Gives more details on |cFFFFFF7FBÄM Mod Classic|r usage and slash commands.",
+      help = "",
+      data = nil,
+      usage = ""
     },
   }
 }
@@ -79,6 +92,7 @@ local BAMEvents = BamModClassic_Events
 local BAMSlash = BamModClassic_SlashFunctions
 local playerGUID = UnitGUID("player")
 local BAMDebugMode = false
+local BAMMsgSpecifiers = {}
 
 function BAMGenerateMessage(...)
   local arg = {...}
@@ -102,7 +116,26 @@ function BAMLogMessage(msg)
   if ("channel" == "CHANNEL") then
     channel = BamModClassic_Config["OutputChannelNumber"]
   end
-  table.insert(BAMLog, "[" .. hours .. ":" .. minutes .. "][" .. channel .. "]: " .. msg)
+  logMessage = "[" .. hours .. ":" .. minutes .. "][" .. channel .. "]: " .. msg
+  if (BAMDebugMode == true) then
+    print("BAM Mod Logging: " .. logMessage)
+  end
+  table.insert(BAMLog, logMessage)
+end
+
+function BAMParseMessageForSpecifiers(msg)
+  local foundSpecifiers = {}
+  for i = 1, #BamModClassic_MessageSpecifiers do
+    table.insert(foundSpecifiers, "")
+    local i1, i2 = msg:find(BamModClassic_MessageSpecifiers[i], nil, true)
+    if not (i1 == nil and i2 == nil) then
+      foundSpecifiers[i] = BamModClassic_MessageSpecifiers[i]
+    end
+  end
+  for i = 1, #foundSpecifiers do
+    --print(i .. " " .. foundSpecifiers[i])
+  end
+  return foundSpecifiers
 end
 
 function BAMEvents:OnEvent(_, event, ...)
@@ -135,6 +168,8 @@ function BAMEvents.EventHandlers.ADDON_LOADED(self, addonName, ...)
     end
   end
 
+  BAMMsgSpecifiers = BAMParseMessageForSpecifiers(BamModClassic_Config["CritString"])
+  BAMSetSlashCommandData()
   BamModClassic_OptionsWindow:Initialize()
 end
 
@@ -157,7 +192,7 @@ function BAMEvents.EventHandlers.COMBAT_LOG_EVENT_UNFILTERED(self)
         chatMessage = BAMGenerateMessage(destination, action, amount, overkill, school, resisted, blocked, absorbed)
         BAMLogMessage(chatMessage)
         if (BamModClassic_Config["OutputChannel"] == "SELF") then
-          print("BÄM Mod Crit Announce: " .. chatMessage)
+          print("|cFFFFFF7FBÄM Mod Classic|r Crit Announce: " .. chatMessage)
         elseif (BamModClassic_Config["OutputChannel"] == "CHANNEL") then
           SendChatMessage(chatMessage, BamModClassic_Config["OutputChannel"], nil, BamModClassic_Config["OutputChannelNumber"])
         else
@@ -169,12 +204,12 @@ function BAMEvents.EventHandlers.COMBAT_LOG_EVENT_UNFILTERED(self)
 end
 
 function BAMSlash.SlashFunctions.enable(splitCmds)
-  print("BÄM Mod Classic enabled")
+  print("|cFFFFFF7FBÄM Mod Classic|r enabled")
   BamModClassic_Config["EnableBamMod"] = true
 end
 
 function BAMSlash.SlashFunctions.disable(splitCmds)
-  print("BÄM Mod Classic disabled")
+  print("|cFFFFFF7FBÄM Mod Classic|r disabled")
   BamModClassic_Config["EnableBamMod"] = false
 end
 
@@ -188,23 +223,24 @@ end
 
 function BAMSlash.SlashFunctions.message(splitCmds)
   if (#splitCmds == 1) then
-    print("BÄM Mod current crit message: " .. BamModClassic_Config["CritString"])
+    print("|cFFFFFF7FBÄM Mod Classic|r current crit message: " .. BamModClassic_Config["CritString"])
     return
   end
 
   local assembledString = ""
   for i,v in pairs(splitCmds) do
     if (i ~= 1) then
-      assembledString = assembledString .. " " .. v
+      assembledString = assembledString .. v .. " "
     end
   end
-  print("Setting BÄM Mod Classic crit announce message to \'" .. assembledString .. '\'')
+  print("Setting |cFFFFFF7FBÄM Mod Classic|r crit announce message to \'" .. assembledString .. '\'')
   BamModClassic_Config["CritString"] = assembledString
+  BAMMsgSpecifiers = BAMParseMessageForSpecifiers(BamModClassic_Config["CritString"])
 end
 
 function BAMSlash.SlashFunctions.channel(splitCmds)
   if (#splitCmds < 2 or (splitCmds[2] == "channel" and #splitCmds < 3)) then
-    print("BÄM Mod Classic Error: missing channel argument")
+    print("|cFFFFFF7FBÄM Mod Classic|r Error: missing channel argument")
     print("    /bam channel " .. BamModClassic_SlashFunctions.SlashHelp.channel.usage)
     print(BamModClassic_SlashFunctions.SlashHelp.channel.desc)
     print(BamModClassic_SlashFunctions.SlashHelp.channel.help)
@@ -217,30 +253,26 @@ function BAMSlash.SlashFunctions.channel(splitCmds)
     BamModClassic_Config["OutputChannelNumber"] = splitCmds[3]
     channelStr = splitCmds[3]
   end
-  print("BÄM Mod Classic output channel set to " .. BamModClassic_Config["OutputChannel"] .. " " .. channelStr)
+  print("|cFFFFFF7FBÄM Mod Classic|r output channel set to " .. BamModClassic_Config["OutputChannel"] .. " " .. channelStr)
 end
 
 function BAMSlash.SlashFunctions.specifiers(splitCmds)
-  specifierStr = ""
-  for i, v in pairs(BamModClassic_MessageSpecifiers) do
-    specifierStr = specifierStr .. v .. " "
-  end
-  print("List of string specifiers: " .. specifierStr)
+  print("List of string specifiers: " .. BAMGetSpecifiers())
 end
 
 function BAMSlash.SlashFunctions.help(splitCmds)
-  print("BÄM Mod Classic list of slash commands:")
+  print("|cFFFFFF7FBÄM Mod Classic|r list of slash commands:")
   for i, v in pairs(BamModClassic_SlashFunctions.SlashHelp) do
-    print("  /bam " .. i .. " " .. v.usage .. "  " .. v.desc)
+    print("  |cFFFFFF7F/bam|r " .. i .. " " .. v.usage .. "  " .. v.desc)
   end
 end
 
 function BAMSlash.SlashFunctions.debug(splitCmds)
   if (BAMDebugMode == true) then
-    print("BÄM Mod debug mode off")
+    print("|cFFFFFF7FBÄM Mod Classic|r debug mode off")
     BAMDebugMode = false
   else
-    print("BÄM Mod debug mode on")
+    print("|cFFFFFF7FBÄM Mod Classic|r debug mode on")
     BAMDebugMode = true
   end
 end
@@ -251,16 +283,73 @@ function BAMSlash.SlashFunctions.log(splitCmds)
   if (#splitCmds > 1) then
     numToPrint = tonumber(splitCmds[2])
   end
-  print("BÄM Mod log:")
-  while (printCount < numToPrint and printCount < BAMLogMaxCount and printCount < #BAMLog) do
-    print("  " .. BAMLog[printCount])
+  if (numToPrint > BAMLogMaxCount) then
+    numToPrint = BAMLogMaxCount
+  end
+  if (numToPrint > #BAMLog) then
+    numToPrint = #BAMLog
+  end
+  if (numToPrint == 0) then
+    print("|cFFFFFF7FBÄM Mod Classic|r Log: No entries in log to print.")
+    return 
+  end
+  print("|cFFFFFF7FBÄM Mod Classic|r Log [" .. numToPrint .. "]:")
+  while (printCount <= numToPrint and printCount < BAMLogMaxCount and printCount < #BAMLog) do
+    if (BAMLog[#BAMLog - printCount] ~= nil) then
+      print("  " .. BAMLog[#BAMLog - printCount])
+    end
     printCount = printCount + 1
   end
 end
 
 function BAMSlash.SlashFunctions.test(splitCmds)
-  print("BÄM Message test:")
+  print("|cFFFFFF7FBÄM Mod Classic|r Message test:")
   print("  [" .. BamModClassic_Config["OutputChannel"] .. "]: " .. BAMGenerateMessage("Sneep", "Melee", "250", "0", "Physical", "0", "0", "0"))
+end
+
+function BAMSlash.SlashFunctions.parse(splitCmds)
+  print("|cFFFFFF7FBÄM Mod Classic|r Parse test:")
+  BAMMsgSpecifiers = BAMParseMessageForSpecifiers(BamModClassic_Config["CritString"])
+end
+
+-- Get Data String functions
+function BAMGetToggle()
+  if (BamModClassic_Config["EnableBamMod"] == true) then
+    return "enabled"
+  else
+    return "disabled"
+  end
+end
+
+function BAMGetChannel()
+  if (BamModClassic_Config["OutputChannel"] == "CHANNEL") then
+    return BamModClassic_Config["OutputChannelNumber"]
+  else
+    return BamModClassic_Config["OutputChannel"]
+  end
+end
+
+function BAMGetMessage()
+  return BamModClassic_Config["CritString"]
+end
+
+function BAMGetSpecifiers()
+  specifierStr = ""
+  for i, v in pairs(BamModClassic_MessageSpecifiers) do
+    specifierStr = specifierStr .. v .. " "
+  end
+  return specifierStr
+end
+
+function BAMGetLogCount()
+  return #BAMLog
+end
+
+function BAMSetSlashCommandData()
+  BamModClassic_SlashFunctions.SlashHelp['toggle']['data'] = BAMGetToggle()
+  BamModClassic_SlashFunctions.SlashHelp['channel']['data'] = BAMGetChannel()
+  BamModClassic_SlashFunctions.SlashHelp['message']['data'] = BAMGetMessage()
+  BamModClassic_SlashFunctions.SlashHelp['log']['data'] = BAMGetLogCount()
 end
 
 -- Register each event for which we have an event handler.
@@ -300,7 +389,15 @@ SlashCmdList["BAM"] = function(inArgs)
         return
       end
     end
-    print("No command matches \'/bam " .. inArgs .. "\'")
+    print("No command matches \'|cFFFFFF7F/bam|r " .. inArgs .. "\'")
   end
-  print("BÄM Mod Classic slash commands:")
+  print("|cFFFFFF7FBÄM Mod Classic|r slash commands:")
+  for i,v in pairs(BamModClassic_SlashFunctions.SlashHelp) do
+    local slashCommandStr = "  |cFFFFFF7F/bam|r " .. i
+    if (v["data"] ~= nil) then
+      slashCommandStr = slashCommandStr .. " (|cFFFFFF7F" .. v["data"] .. "|r)"
+    end
+    slashCommandStr = slashCommandStr .. ": " .. v["desc"]
+    print(slashCommandStr)
+  end
 end
