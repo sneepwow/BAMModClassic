@@ -1,14 +1,8 @@
 -- BÄM Mod Classic by Sneep <Goon Squad> Herod
 
-local BamModClassic_DefaultConfig = {
-  EnableBamMod = true,
-  CritString = "BÄM!! [{action} - {amount}]",
-  OutputChannel = "YELL",
-  OutputChannelNumber = 1,
-  MeleeReplaceString = "Melee"
-}
-
 BamModClassic_Config = nil
+
+BamModClassic_CritRecord = nil
 
 BamModClassic_Events = {
   EventHandlers = {}
@@ -43,7 +37,7 @@ BamModClassic_SlashFunctions = {
     },
     channel = {
       desc = "Sets channel to output BÄM Mod crit announces.",
-      help = "A valid channel either one of the following: SAY YELL PARTY RAID or CHANNEL followed by the channel #. SELF is also an option to output to the chatframe instead of a chat channel.",
+      help = "A valid channel is either one of the following: SELF SAY YELL PARTY RAID or CHANNEL followed by the channel #.",
       data = nil,
       usage = "[SAY YELL PARTY RAID CHANNEL SELF] [[Channel #]]"
     },
@@ -66,6 +60,29 @@ BamModClassic_SlashFunctions = {
       usage = ""
     },
   }
+}
+
+local BamModClassic_EventData = {
+  timestamp = nil,
+  target = nil,
+  action = nil,
+  amount = 0,
+  zone = nil
+}
+
+local BamModClassic_DefaultConfig = {
+  EnableBamMod = true,
+  CritString = "BÄM!! [{action} - {amount}]",
+  OutputChannel = "YELL",
+  OutputChannelNumber = 1,
+  MeleeReplaceString = "Melee"
+}
+
+local BamModClassic_CritRecord_DefaultConfig = {
+  melee = {},
+  spell = {},
+  heal = {},
+  pet = {},
 }
 
 local BamModClassic_OutputChannels = {
@@ -93,6 +110,14 @@ local BAMSlash = BamModClassic_SlashFunctions
 local playerGUID = UnitGUID("player")
 local BAMDebugMode = false
 local BAMMsgSpecifiers = {}
+local BAMCritRecord_Current = {}
+
+function copy(obj)
+  if type(obj) ~= 'table' then return obj end
+  local res = {}
+  for k, v in pairs(obj) do res[copy(k)] = copy(v) end
+  return res
+end
 
 function BAMGenerateMessage(...)
   local arg = {...}
@@ -132,10 +157,14 @@ function BAMParseMessageForSpecifiers(msg)
       foundSpecifiers[i] = BamModClassic_MessageSpecifiers[i]
     end
   end
-  for i = 1, #foundSpecifiers do
+  --for i = 1, #foundSpecifiers do
     --print(i .. " " .. foundSpecifiers[i])
-  end
+  --end
   return foundSpecifiers
+end
+
+function BAMFillEventData(data_table, timestamp, target, action, amount, zone)
+
 end
 
 function BAMEvents:OnEvent(_, event, ...)
@@ -149,15 +178,26 @@ function BAMEvents.EventHandlers.ADDON_LOADED(self, addonName, ...)
 
   -- Check if we already have a table saved globally
   if type(_G["BAMMODCLASSIC_CONFIG"]) ~= "table" then
-    _G["BAMMODCLASSIC_CONFIG"] = BamModClassic_DefaultConfig
+    _G["BAMMODCLASSIC_CONFIG"] = copy(BamModClassic_DefaultConfig)
+  end
+
+  if type(_G["BAMMODCLASSIC_CRITRECORD"]) ~= "table" then
+    _G["BAMMODCLASSIC_CRITRECORD"] = copy(BamModClassic_CritRecord_DefaultConfig)
   end
 
   BamModClassic_Config = _G["BAMMODCLASSIC_CONFIG"]
+  BamModClassic_CritRecord = _G["BAMMODCLASSIC_CRITRECORD"]
 
   -- Add arguments from default config we're missing in our config
   for i,v in pairs(BamModClassic_DefaultConfig) do
     if BamModClassic_Config[i] == nil then
       BamModClassic_Config[i] = BamModClassic_DefaultConfig[i]
+    end
+  end
+
+  for i,v in pairs(BamModClassic_CritRecord_DefaultConfig) do
+    if BamModClassic_CritRecord[i] == nil then
+      BamModClassic_CritRecord[i] = copy(BamModClassic_EventData)
     end
   end
 
@@ -167,6 +207,8 @@ function BAMEvents.EventHandlers.ADDON_LOADED(self, addonName, ...)
       BamModClassic_Config[i] = nil
     end
   end
+
+  BAMCritRecord_Current = copy(BamModClassic_EventData)
 
   BAMMsgSpecifiers = BAMParseMessageForSpecifiers(BamModClassic_Config["CritString"])
   BAMSetSlashCommandData()
@@ -192,7 +234,7 @@ function BAMEvents.EventHandlers.COMBAT_LOG_EVENT_UNFILTERED(self)
         chatMessage = BAMGenerateMessage(destination, action, amount, overkill, school, resisted, blocked, absorbed)
         BAMLogMessage(chatMessage)
         if (BamModClassic_Config["OutputChannel"] == "SELF") then
-          print("|cFFFFFF7FBÄM Mod Classic|r Crit Announce: " .. chatMessage)
+          print("|cFFFFFF7FBÄM Mod Classic|r Crit: " .. chatMessage)
         elseif (BamModClassic_Config["OutputChannel"] == "CHANNEL") then
           SendChatMessage(chatMessage, BamModClassic_Config["OutputChannel"], nil, BamModClassic_Config["OutputChannelNumber"])
         else
@@ -239,16 +281,25 @@ function BAMSlash.SlashFunctions.message(splitCmds)
 end
 
 function BAMSlash.SlashFunctions.channel(splitCmds)
-  if (#splitCmds < 2 or (splitCmds[2] == "channel" and #splitCmds < 3)) then
-    print("|cFFFFFF7FBÄM Mod Classic|r Error: missing channel argument")
+  local function BAMChannelError(error)
+    print("|cFFFFFF7FBÄM Mod Classic|r Error: " .. error)
     print("    /bam channel " .. BamModClassic_SlashFunctions.SlashHelp.channel.usage)
     print(BamModClassic_SlashFunctions.SlashHelp.channel.desc)
     print(BamModClassic_SlashFunctions.SlashHelp.channel.help)
+  end
+  if (#splitCmds < 2 or (splitCmds[2] == "channel" and #splitCmds < 3)) then
+      BAMChannelError("missing channel argument")
     return
   end
 
   local channelStr = ""
-  BamModClassic_Config["OutputChannel"] = splitCmds[2]:upper()
+  local channel = splitCmds[2]:upper()
+
+  if (channel ~= "CHANNEL" and channel ~= "SELF" and channel ~= "SAY" and channel ~= "YELL" and channel ~= "PARTY" and channel ~= "RAID" and channel ~= "WHISPER") then
+    return BAMChannelError("channel \'" .. channel .. "\' is not a valid option.")
+  end
+
+  BamModClassic_Config["OutputChannel"] = channel
   if (splitCmds[2] == "channel") then
     BamModClassic_Config["OutputChannelNumber"] = splitCmds[3]
     channelStr = splitCmds[3]

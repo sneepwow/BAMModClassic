@@ -2,8 +2,8 @@
 ## Title: BÄM Mod Classic
 ## Notes: Announce your beautiful crits to the world!
 ## Author: Sneep
-## Version: 0.1.1
-## SavedVariablesPerCharacter: BAMMODCLASSIC_CONFIG
+## Version: 0.1.2
+## SavedVariablesPerCharacter: BAMMODCLASSIC_CONFIG, BAMMODCLASSIC_CRITRECORD
 
 BamModClassic.lua
 UI/OptionsWindow.lua
