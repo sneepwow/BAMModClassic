@@ -8,29 +8,30 @@ BamModClassic_Events = {
   EventHandlers = {}
 }
 
+local BAMColStr = "|cFFFFFF7FBÄM Mod Classic|r"
 BamModClassic_SlashFunctions = {
   SlashFunctions = {},
   SlashHelp = {
     enable = {
-      desc = "Enables |cFFFFFF7FBÄM Mod Classic|r crit announces.",
+      desc = "Enables " .. BAMColStr .. " crit announces.",
       help = "",
       data = nil,
       usage = ""
     },
     disable = {
-      desc = "Disables |cFFFFFF7FBÄM Mod Classic|r crit announces.",
+      desc = "Disables " .. BAMColStr .. " crit announces.",
       help = "",
       data = nil,
       usage = ""
     },
     toggle = {
-      desc = "Toggles on/off |cFFFFFF7FBÄM Mod Classic|r crit announces.",
+      desc = "Toggles on/off " .. BAMColStr .. " crit announces.",
       help = "",
       data = nil,
       usage = ""
     },
     message = {
-      desc = "Sets the message to send on |cFFFFFF7FBÄM Mod Classic|r crit announces.",
+      desc = "Sets the message to send on " .. BAMColStr .. " crit announces.",
       help = "Enter your entire message to send out on a crit. Use the {specifiers} from '|cFFFFFF7F/bam|r specifiers' to swap in data from the attack.",
       data = nil,
       usage = "..."
@@ -54,7 +55,7 @@ BamModClassic_SlashFunctions = {
       usage = "[[num]]"
     },
     help = {
-      desc = "Gives more details on |cFFFFFF7FBÄM Mod Classic|r usage and slash commands.",
+      desc = "Gives more details on " .. BAMColStr .. " usage and slash commands.",
       help = "",
       data = nil,
       usage = ""
@@ -80,9 +81,10 @@ local BamModClassic_DefaultConfig = {
 
 local BamModClassic_CritRecord_DefaultConfig = {
   melee = {},
+  ranged = {},
   spell = {},
   heal = {},
-  pet = {},
+  pet = {}
 }
 
 local BamModClassic_OutputChannels = {
@@ -163,8 +165,26 @@ function BAMParseMessageForSpecifiers(msg)
   return foundSpecifiers
 end
 
-function BAMFillEventData(data_table, timestamp, target, action, amount, zone)
+function BAMFormatCritRecord(critData)
+  if (critData == nil) then return nil end
+  return "[" .. critData["timestamp"] .. "]: |cFFFF0000" .. critData["amount"] .. "|r crit with " .. critData["action"] .. " on " .. critData["target"] .. " in " .. critData["zone"]
+end
 
+function BAMFillEventData(data_table, timestamp, target, action, amount, zone)
+  data_table["timestamp"] = timestamp
+  data_table["target"] = target
+  data_table["action"] = action
+  data_table["amount"] = amount
+  data_table["zone"] = zone
+end
+
+function BAMRecordCrit(critData, eventType)
+  if (BamModClassic_CritRecord_DefaultConfig[eventType] == nil) then return end
+
+  if (BamModClassic_CritRecord_DefaultConfig[eventType]["amount"] == nil or BamModClassic_CritRecord_DefaultConfig[eventType]["amount"] < critData["amount"]) then
+    BamModClassic_CritRecord_DefaultConfig[eventType] = copy(critData)
+    print(BAMColStr .. " |cFFFF0000NEW|r Crit Record!! [" .. string.upper(eventType) .. "] " .. BAMFormatCritRecord(critData)) 
+  end 
 end
 
 function BAMEvents:OnEvent(_, event, ...)
@@ -209,8 +229,7 @@ function BAMEvents.EventHandlers.ADDON_LOADED(self, addonName, ...)
   end
 
   BAMCritRecord_Current = copy(BamModClassic_EventData)
-
-  BAMMsgSpecifiers = BAMParseMessageForSpecifiers(BamModClassic_Config["CritString"])
+  --BAMMsgSpecifiers = BAMParseMessageForSpecifiers(BamModClassic_Config["CritString"])
   BAMSetSlashCommandData()
   BamModClassic_OptionsWindow:Initialize()
 end
@@ -225,33 +244,43 @@ function BAMEvents.EventHandlers.COMBAT_LOG_EVENT_UNFILTERED(self)
 
       if (subevent == "SWING_DAMAGE") then
         amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, offhand = select(12, CombatLogGetCurrentEventInfo())
-      elseif (subevent == "SPELL_DAMAGE" or subevent == "SPELL_HEAL") then
+      elseif (subevent == "SPELL_DAMAGE" or subevent == "SPELL_HEAL" or subevent == "RANGE_DAMAGE" or subevent == "SPELL_PERIODIC_DAMAGE") then
         spellId, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, offhand = select(12, CombatLogGetCurrentEventInfo())
       end
 
-      if (critical == true or BAMDebugMode == true) and (subevent == "SWING_DAMAGE" or subevent == "SPELL_DAMAGE" or subevent == "SPELL_HEAL") then
+      if (critical == true or BAMDebugMode == true) and (subevent == "SWING_DAMAGE" or subevent == "SPELL_DAMAGE" or subevent == "SPELL_HEAL" or subevent == "RANGE_DAMAGE" or subevent == "SPELL_PERIODIC_DAMAGE") then
         local action = (spellName) or BamModClassic_Config["MeleeReplaceString"]
-        chatMessage = BAMGenerateMessage(destination, action, amount, overkill, school, resisted, blocked, absorbed)
-        BAMLogMessage(chatMessage)
+        chatMessage = BAMGenerateMessage(destName, action, amount, overkill, school, resisted, blocked, absorbed)
         if (BamModClassic_Config["OutputChannel"] == "SELF") then
-          print("|cFFFFFF7FBÄM Mod Classic|r Crit: " .. chatMessage)
+          print(BAMColStr .. " Crit: " .. chatMessage)
         elseif (BamModClassic_Config["OutputChannel"] == "CHANNEL") then
           SendChatMessage(chatMessage, BamModClassic_Config["OutputChannel"], nil, BamModClassic_Config["OutputChannelNumber"])
         else
           SendChatMessage(chatMessage, BamModClassic_Config["OutputChannel"], nil)
         end
+        BAMLogMessage(chatMessage)
+        local ts = date('%Y-%m-%d %H:%M:%S')
+        local event = ""
+        if (subevent == "SWING_DAMAGE") then event = "melee"
+        elseif (subevent == "RANGE_DAMAGE") then event = "ranged" 
+        elseif (subevent == "SPELL_DAMAGE" or subevent == "SPELL_PERIODIC_DAMAGE") then event = "spell" action = '[' .. action .. ']'
+        elseif (subevent == "SPELL_HEAL") then event = "heal" action = '[' .. action .. ']' end
+        BAMFillEventData(BAMCritRecord_Current, ts, destName, action, amount, GetZoneText())
+        BAMRecordCrit(BAMCritRecord_Current, event)
       end
     end
   end
 end
 
+-- elseif (sourceFlags == 0x00001111) or (sourceFlags == 0x00002111) then -- Check if source is our pet or minion
+
 function BAMSlash.SlashFunctions.enable(splitCmds)
-  print("|cFFFFFF7FBÄM Mod Classic|r enabled")
+  print(BAMColStr .. " enabled")
   BamModClassic_Config["EnableBamMod"] = true
 end
 
 function BAMSlash.SlashFunctions.disable(splitCmds)
-  print("|cFFFFFF7FBÄM Mod Classic|r disabled")
+  print(BAMColStr .. " disabled")
   BamModClassic_Config["EnableBamMod"] = false
 end
 
@@ -265,7 +294,7 @@ end
 
 function BAMSlash.SlashFunctions.message(splitCmds)
   if (#splitCmds == 1) then
-    print("|cFFFFFF7FBÄM Mod Classic|r current crit message: " .. BamModClassic_Config["CritString"])
+    print(BAMColStr .. " current crit message: " .. BamModClassic_Config["CritString"])
     return
   end
 
@@ -275,14 +304,14 @@ function BAMSlash.SlashFunctions.message(splitCmds)
       assembledString = assembledString .. v .. " "
     end
   end
-  print("Setting |cFFFFFF7FBÄM Mod Classic|r crit announce message to \'" .. assembledString .. '\'')
+  print("Setting " .. BAMColStr .. " crit announce message to \'" .. assembledString .. '\'')
   BamModClassic_Config["CritString"] = assembledString
-  BAMMsgSpecifiers = BAMParseMessageForSpecifiers(BamModClassic_Config["CritString"])
+  --BAMMsgSpecifiers = BAMParseMessageForSpecifiers(BamModClassic_Config["CritString"])
 end
 
 function BAMSlash.SlashFunctions.channel(splitCmds)
   local function BAMChannelError(error)
-    print("|cFFFFFF7FBÄM Mod Classic|r Error: " .. error)
+    print(BAMColStr .. " Error: " .. error)
     print("    /bam channel " .. BamModClassic_SlashFunctions.SlashHelp.channel.usage)
     print(BamModClassic_SlashFunctions.SlashHelp.channel.desc)
     print(BamModClassic_SlashFunctions.SlashHelp.channel.help)
@@ -304,7 +333,7 @@ function BAMSlash.SlashFunctions.channel(splitCmds)
     BamModClassic_Config["OutputChannelNumber"] = splitCmds[3]
     channelStr = splitCmds[3]
   end
-  print("|cFFFFFF7FBÄM Mod Classic|r output channel set to " .. BamModClassic_Config["OutputChannel"] .. " " .. channelStr)
+  print(BAMColStr .. " output channel set to " .. BamModClassic_Config["OutputChannel"] .. " " .. channelStr)
 end
 
 function BAMSlash.SlashFunctions.specifiers(splitCmds)
@@ -312,7 +341,7 @@ function BAMSlash.SlashFunctions.specifiers(splitCmds)
 end
 
 function BAMSlash.SlashFunctions.help(splitCmds)
-  print("|cFFFFFF7FBÄM Mod Classic|r list of slash commands:")
+  print(BAMColStr .. " list of slash commands:")
   for i, v in pairs(BamModClassic_SlashFunctions.SlashHelp) do
     print("  |cFFFFFF7F/bam|r " .. i .. " " .. v.usage .. "  " .. v.desc)
   end
@@ -320,10 +349,10 @@ end
 
 function BAMSlash.SlashFunctions.debug(splitCmds)
   if (BAMDebugMode == true) then
-    print("|cFFFFFF7FBÄM Mod Classic|r debug mode off")
+    print(BAMColStr .. " debug mode off")
     BAMDebugMode = false
   else
-    print("|cFFFFFF7FBÄM Mod Classic|r debug mode on")
+    print(BAMColStr .. " debug mode on")
     BAMDebugMode = true
   end
 end
@@ -333,6 +362,9 @@ function BAMSlash.SlashFunctions.log(splitCmds)
   local numToPrint = 5
   if (#splitCmds > 1) then
     numToPrint = tonumber(splitCmds[2])
+    if not numToPrint then
+      numToPrint = 5
+    end
   end
   if (numToPrint > BAMLogMaxCount) then
     numToPrint = BAMLogMaxCount
@@ -341,10 +373,10 @@ function BAMSlash.SlashFunctions.log(splitCmds)
     numToPrint = #BAMLog
   end
   if (numToPrint == 0) then
-    print("|cFFFFFF7FBÄM Mod Classic|r Log: No entries in log to print.")
+    print(BAMColStr .. " Log: No entries in log to print.")
     return 
   end
-  print("|cFFFFFF7FBÄM Mod Classic|r Log [" .. numToPrint .. "]:")
+  print(BAMColStr .. " Log [" .. numToPrint .. "]:")
   while (printCount <= numToPrint and printCount < BAMLogMaxCount and printCount < #BAMLog) do
     if (BAMLog[#BAMLog - printCount] ~= nil) then
       print("  " .. BAMLog[#BAMLog - printCount])
@@ -354,14 +386,17 @@ function BAMSlash.SlashFunctions.log(splitCmds)
 end
 
 function BAMSlash.SlashFunctions.test(splitCmds)
-  print("|cFFFFFF7FBÄM Mod Classic|r Message test:")
+  print(BAMColStr .. " Message test:")
   local bamMsg = BAMGenerateMessage("Sneep", "Melee", "250", "0", "Physical", "0", "0", "0")
   BAMLogMessage(bamMsg)
   print("[" .. BamModClassic_Config["OutputChannel"] .. "]: " .. bamMsg)
+  BAMFillEventData(BAMCritRecord_Current, "2013-12-25 22:09:51", "Arthas", "Melee", 250, GetZoneText())
+  BAMRecordCrit(BAMCritRecord_Current, "melee")
+  BamModClassic_CritRecord_DefaultConfig["melee"]["amount"] = 1
 end
 
 function BAMSlash.SlashFunctions.parse(splitCmds)
-  print("|cFFFFFF7FBÄM Mod Classic|r Parse test:")
+  print(BAMColStr .. " Parse test:")
   BAMMsgSpecifiers = BAMParseMessageForSpecifiers(BamModClassic_Config["CritString"])
 end
 
@@ -443,7 +478,7 @@ SlashCmdList["BAM"] = function(inArgs)
     end
     print("No command matches \'|cFFFFFF7F/bam|r " .. inArgs .. "\'")
   end
-  print("|cFFFFFF7FBÄM Mod Classic|r slash commands:")
+  print(BAMColStr .. " slash commands:")
   for i,v in pairs(BamModClassic_SlashFunctions.SlashHelp) do
     local slashCommandStr = "  |cFFFFFF7F/bam|r " .. i
     if (v["data"] ~= nil) then
