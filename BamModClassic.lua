@@ -256,7 +256,8 @@ function BAMEvents.EventHandlers.COMBAT_LOG_EVENT_UNFILTERED(self)
         elseif (BamModClassic_Config["OutputChannel"] == "CHANNEL") then
           SendChatMessage(chatMessage, BamModClassic_Config["OutputChannel"], nil, BamModClassic_Config["OutputChannelNumber"])
         else
-          SendChatMessage(chatMessage, BamModClassic_Config["OutputChannel"], nil)
+          --SendChatMessage(chatMessage, BamModClassic_Config["OutputChannel"], nil)
+          BAMSlash.SlashFunctions.testmsg("")
         end
         BAMLogMessage(chatMessage)
         local ts = date('%Y-%m-%d %H:%M:%S')
@@ -394,6 +395,12 @@ function BAMSlash.SlashFunctions.test(splitCmds)
   BAMFillEventData(BAMCritRecord_Current, "2013-12-25 22:09:51", "Arthas", "Melee", 250, GetZoneText())
   BAMRecordCrit(BAMCritRecord_Current, "melee")
   BamModClassic_CritRecord_DefaultConfig["melee"]["amount"] = 1
+end
+
+function BAMSlash.SlashFunctions.testmsg(splitCmds)
+  print(BAMColStr .. " test message:")
+  local bamMsg = BAMGenerateMessage("Sneep", "Melee", "250", "0", "Physical", "0", "0", "0")
+  SendChatMessage(bamMsg, "SAY", nil)
 end
 
 function BAMSlash.SlashFunctions.parse(splitCmds)
