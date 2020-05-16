@@ -40,7 +40,7 @@ BamModClassic_SlashFunctions = {
       desc = "Sets channel to output BÄM Mod crit announces.",
       help = "A valid channel is either one of the following: SELF SAY YELL PARTY RAID or CHANNEL followed by the channel #.",
       data = nil,
-      usage = "[SAY YELL PARTY RAID CHANNEL SELF] [[Channel #]]"
+      usage = "[SELF|SAY|YELL|PARTY|RAID|CHANNEL] [[Channel #]]"
     },
     specifiers = {
       desc = "Lists the string specifiers you can use in your \'|cFFFFFF7F/bam|r message\' string to swap in data from the attack.",
@@ -304,6 +304,7 @@ function BAMSlash.SlashFunctions.message(splitCmds)
       assembledString = assembledString .. v .. " "
     end
   end
+  assembledString = assembledString:sub(1, -2) -- Remove trailing space
   print("Setting " .. BAMColStr .. " crit announce message to \'" .. assembledString .. '\'')
   BamModClassic_Config["CritString"] = assembledString
   --BAMMsgSpecifiers = BAMParseMessageForSpecifiers(BamModClassic_Config["CritString"])
